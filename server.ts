@@ -759,6 +759,67 @@ async function startServer() {
   });
 
   // Razorpay Credit Purchase Simulator
+  app.post("/api/payments/pay", authenticateUser, (req: any, res: Response) => {
+    const { packName, connectsAdded, amountPaid, paymentId } = req.body;
+    const planName = packName || req.body.planName;
+    const amount = amountPaid || req.body.amount;
+
+    if (!planName || !amount) {
+      return res.status(400).json({ message: "Selected bundle features are missing." });
+    }
+
+    const db = loadDatabase();
+    const user = db.users.find(u => u.id === req.user.userId);
+    if (!user) return res.status(404).json({ message: "User profile not found." });
+
+    let creditsToAward = Number(connectsAdded) || 0;
+    if (creditsToAward === 0) {
+      if (planName.toLowerCase().includes("starter")) creditsToAward = 100;
+      else if (planName.toLowerCase().includes("growth")) creditsToAward = 300;
+      else if (planName.toLowerCase().includes("pro")) creditsToAward = 1000;
+    }
+
+    if (creditsToAward === 0) {
+      return res.status(400).json({ message: "Invalid credit plans selection." });
+    }
+
+    // Award Credits
+    user.connects += creditsToAward;
+
+    // Log simulated transaction
+    const logId = "pay-" + Math.random().toString(36).substr(2, 9);
+    const newTx: PaymentLog = {
+      id: logId,
+      userId: user.id,
+      planName,
+      amount: Number(amount),
+      paymentId: paymentId || `pay_RzpSim${Math.floor(Math.random() * 1000000)}`,
+      status: "success",
+      date: new Date().toISOString()
+    };
+
+    db.payments.push(newTx);
+
+    // Send notifications
+    const receiptNotif: UserNotification = {
+      id: "notif-" + Math.random().toString(36).substr(2, 9),
+      userId: user.id,
+      title: "Invoice Settlement Successful",
+      message: `Your payment of ₹${Number(amount).toLocaleString()} was settled via Razorpay simulator! Added ${creditsToAward} connect credits.`,
+      type: "credits",
+      read: false,
+      createdAt: new Date().toISOString()
+    };
+    db.notifications.push(receiptNotif);
+
+    saveDatabase(db);
+    res.json({
+      message: "Payment successfully captured! Credits unlocked.",
+      newConnectsBalance: user.connects,
+      receipt: newTx
+    });
+  });
+
   app.post("/api/payments/purchase", authenticateUser, (req: any, res: Response) => {
     const { planName, amount, paymentId } = req.body;
     if (!planName || !amount) {
