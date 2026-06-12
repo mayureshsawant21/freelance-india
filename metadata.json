@@ -1,0 +1,8 @@
+{
+  "name": "Freelance India",
+  "description": "A premium, dedicated freelance marketplace for Digital Marketing professionals in India.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
